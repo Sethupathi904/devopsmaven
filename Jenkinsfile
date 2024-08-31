@@ -6,9 +6,10 @@ pipeline {
 	
 	environment {
 		PROJECT_ID = 'groovy-legacy-434014-d0'
-                CLUSTER_NAME = 'k8s-cluster'
-                LOCATION = 'us-central1-c'
-                CREDENTIALS_ID = 'kubernetes'		
+        CLUSTER_NAME = 'k8s-cluster'
+        LOCATION = 'us-central1-c'
+        CREDENTIALS_ID = 'kubernetes'	
+		PATH = "/usr/local/bin:${env.PATH}"
 	}
 	
     stages {
