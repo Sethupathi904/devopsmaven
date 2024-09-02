@@ -1,5 +1,26 @@
-FROM tomcat:8.0.20-jre8
+# Use the official Node.js image as the base image
+FROM node:18
 
-RUN mkdir /usr/local/tomcat/webapps/myapp
+# Set the working directory in the container
+WORKDIR /app
 
-COPY kubernetes/target/kubernetes-1.0-AMIT.war /usr/local/tomcat/webapps/kubernetes-1.0-AMIT.war
+# Copy package.json and package-lock.json
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy the rest of the application code
+COPY . .
+
+# Build the React application
+RUN npm run build
+
+# Install a simple HTTP server to serve the build files
+RUN npm install -g serve
+
+# Expose port 5000
+EXPOSE 5000
+
+# Command to run the application
+CMD ["serve", "-s", "build", "-l", "5000"]
