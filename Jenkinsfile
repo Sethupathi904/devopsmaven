@@ -1,50 +1,44 @@
 pipeline {
     agent any
-    
+
     environment {
-        DOCKER_CREDENTIALS_ID = 'dockerhub'
-        DOCKER_IMAGE = "my-react-app:${env.BUILD_ID}"
-        PROJECT_ID = 'groovy-legacy-434014-d0'
-        CLUSTER_NAME = 'k8s-cluster'
-        LOCATION = 'us-central1-c'
-        CREDENTIALS_ID = 'kubernetes'
-        PATH = "/tmp:$PATH"  // Update to writable directory if necessary
+        // Define any environment variables you need here
+        DOCKER_IMAGE = 'my-react-app'
+        DOCKER_TAG = "${env.BUILD_ID}"
+        REACT_APP_ENV = 'production'  // or 'development' as needed
     }
-    
+
     stages {
-        stage('Start') {
-            steps {
-                echo 'Starting pipeline...'
-            }
-        }
-        
         stage('Checkout SCM') {
             steps {
                 checkout scm
-                sh 'ls -al'  // Verify file existence
             }
         }
-        
-        stage('Tool Install') {
-            steps {
-                script {
-                    sh 'curl -LO "https://dl.k8s.io/release/v1.27.1/bin/linux/amd64/kubectl"'
-                    sh 'chmod +x ./kubectl'
-                    sh 'mv ./kubectl /tmp/kubectl'  // Move to a writable directory
-                    sh 'export PATH=/tmp:$PATH'    // Update PATH to include the new directory
-                }
-            }
-        }
-        
-        stage('Build') {
+
+        stage('Install Dependencies') {
             steps {
                 script {
                     sh 'npm install'
+                }
+            }
+        }
+
+        stage('Build') {
+            steps {
+                script {
                     sh 'npm run build'
                 }
             }
         }
-        
+
+        stage('Lint') {
+            steps {
+                script {
+                    sh 'npm run lint'
+                }
+            }
+        }
+
         stage('Test') {
             steps {
                 script {
@@ -52,104 +46,42 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Build Docker Image') {
             steps {
                 script {
-                    def dockerfile = '''
-                    # Dockerfile
-                    FROM nginx:alpine
-                    COPY build /usr/share/nginx/html
-                    EXPOSE 80
-                    '''
-                    
-                    writeFile file: 'Dockerfile', text: dockerfile
-                    sh 'docker build -t ${DOCKER_IMAGE} .'
+                    sh "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} ."
                 }
             }
         }
-        
+
         stage('Push Docker Image') {
             steps {
                 script {
-                    withCredentials([usernamePassword(credentialsId: DOCKER_CREDENTIALS_ID, passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
-                        sh 'echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin'
-                        sh 'docker push ${DOCKER_IMAGE}'
+                    withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                        sh "docker login -u sethu904 -p ${dockerhub}"
+                        sh "docker push ${DOCKER_IMAGE}:${DOCKER_TAG}"
                     }
                 }
             }
         }
-        
-        stage('Deploy to K8s') {
+
+        stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    withCredentials([file(credentialsId: CREDENTIALS_ID, variable: 'KUBE_CONFIG')]) {
-                        sh 'gcloud auth activate-service-account --key-file=$KUBE_CONFIG'
-                        sh 'gcloud config set project ${PROJECT_ID}'
-                        sh 'gcloud container clusters get-credentials ${CLUSTER_NAME} --zone ${LOCATION}'
-                        
-                        def deploymentYaml = '''
-                        apiVersion: apps/v1
-                        kind: Deployment
-                        metadata:
-                          name: react-app
-                        spec:
-                          replicas: 2
-                          selector:
-                            matchLabels:
-                              app: react-app
-                          template:
-                            metadata:
-                              labels:
-                                app: react-app
-                            spec:
-                              containers:
-                              - name: react-app
-                                image: ${DOCKER_IMAGE}
-                                ports:
-                                - containerPort: 80
-                        '''
-                        
-                        def serviceYaml = '''
-                        apiVersion: v1
-                        kind: Service
-                        metadata:
-                          name: react-app-service
-                        spec:
-                          selector:
-                            app: react-app
-                          ports:
-                            - protocol: TCP
-                              port: 80
-                              targetPort: 80
-                          type: LoadBalancer
-                        '''
-                        
-                        writeFile file: 'deployment.yaml', text: deploymentYaml
-                        writeFile file: 'service.yaml', text: serviceYaml
-                        
-                        sh 'kubectl apply -f deployment.yaml'
-                        sh 'kubectl apply -f service.yaml'
-                    }
+                    sh "kubectl set image deployment/my-react-app my-react-app=${DOCKER_IMAGE}:${DOCKER_TAG} --record"
                 }
             }
         }
     }
-    
+
     post {
         success {
-            emailext(
-                to: 'your-email@example.com',
-                subject: 'Build Success',
-                body: 'The build and deployment were successful!'
-            )
+            echo 'Pipeline succeeded!'
         }
         failure {
-            emailext(
-                to: 'your-email@example.com',
-                subject: 'Build Failure',
-                body: 'The build or deployment failed. Please check the logs.'
-            )
+            echo 'Pipeline failed!'
+            // Add any failure notifications here, e.g., email notifications
         }
     }
 }
