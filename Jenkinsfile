@@ -8,7 +8,7 @@ pipeline {
         CLUSTER_NAME = 'k8s-cluster'
         LOCATION = 'us-central1-c'
         CREDENTIALS_ID = 'kubernetes'
-        PATH = "/usr/local/bin:${env.PATH}"
+        PATH = "/tmp:$PATH"  // Update to writable directory if necessary
     }
     
     stages {
@@ -21,24 +21,18 @@ pipeline {
         stage('Checkout SCM') {
             steps {
                 checkout scm
+                sh 'ls -al'  // Verify file existence
             }
         }
         
-		stage('Tool Install') {
-			steps {
-				script {
-					// Install kubectl to /tmp or another writable directory
-					sh 'curl -LO "https://dl.k8s.io/release/v1.27.1/bin/linux/amd64/kubectl"'
-					sh 'chmod +x ./kubectl'
-					sh 'mv ./kubectl /tmp/kubectl'  // Move to a writable directory
-					sh 'export PATH=/tmp:$PATH'    // Update PATH to include the new directory
-				}
-			}
-		}
-        
-        stage('SCM Checkout') {
+        stage('Tool Install') {
             steps {
-                checkout scm
+                script {
+                    sh 'curl -LO "https://dl.k8s.io/release/v1.27.1/bin/linux/amd64/kubectl"'
+                    sh 'chmod +x ./kubectl'
+                    sh 'mv ./kubectl /tmp/kubectl'  // Move to a writable directory
+                    sh 'export PATH=/tmp:$PATH'    // Update PATH to include the new directory
+                }
             }
         }
         
@@ -54,7 +48,6 @@ pipeline {
         stage('Test') {
             steps {
                 script {
-                    // Add any test steps here, e.g., running ESLint or other tests
                     sh 'npm test'
                 }
             }
@@ -90,13 +83,11 @@ pipeline {
         stage('Deploy to K8s') {
             steps {
                 script {
-                    // Authenticate with GCP and set up kubectl
                     withCredentials([file(credentialsId: CREDENTIALS_ID, variable: 'KUBE_CONFIG')]) {
                         sh 'gcloud auth activate-service-account --key-file=$KUBE_CONFIG'
                         sh 'gcloud config set project ${PROJECT_ID}'
                         sh 'gcloud container clusters get-credentials ${CLUSTER_NAME} --zone ${LOCATION}'
                         
-                        // Deploy to Kubernetes
                         def deploymentYaml = '''
                         apiVersion: apps/v1
                         kind: Deployment
@@ -148,14 +139,14 @@ pipeline {
     post {
         success {
             emailext(
-                to: 'sethupathispsp@gmail.com',
+                to: 'your-email@example.com',
                 subject: 'Build Success',
                 body: 'The build and deployment were successful!'
             )
         }
         failure {
             emailext(
-                to: 'sethupathispsp@gmail.com',
+                to: 'your-email@example.com',
                 subject: 'Build Failure',
                 body: 'The build or deployment failed. Please check the logs.'
             )
