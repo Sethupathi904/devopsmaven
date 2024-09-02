@@ -9,4 +9,4 @@ spec:
   ports:
     - protocol: TCP
       port: 80
-      targetPort: 5000 # Updated to match the port exposed in Dockerfile
+      targetPort: 80

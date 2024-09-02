@@ -10,12 +10,12 @@ spec:
     matchLabels:
       app: myapp
   template:
-    metadata:
+    metadata: 
       labels:
         app: myapp
     spec:
       containers:
       - name: myapp
-        image: sethu904/reactapp:tagversion # Updated image name to match React app
+        image: sethu904/devops:tagversion
         ports:
-        - containerPort: 5000 # Updated to match the port exposed in Dockerfile
+        - containerPort: 80
