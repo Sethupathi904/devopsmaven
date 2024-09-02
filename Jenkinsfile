@@ -24,16 +24,17 @@ pipeline {
             }
         }
         
-        stage('Tool Install') {
-            steps {
-                script {
-                    // Install any required tools here, e.g., Docker, kubectl
-                    sh 'curl -LO "https://dl.k8s.io/release/v1.27.1/bin/linux/amd64/kubectl"'
-                    sh 'chmod +x ./kubectl'
-                    sh 'mv ./kubectl /usr/local/bin/kubectl'
-                }
-            }
-        }
+		stage('Tool Install') {
+			steps {
+				script {
+					// Install kubectl to /tmp or another writable directory
+					sh 'curl -LO "https://dl.k8s.io/release/v1.27.1/bin/linux/amd64/kubectl"'
+					sh 'chmod +x ./kubectl'
+					sh 'mv ./kubectl /tmp/kubectl'  // Move to a writable directory
+					sh 'export PATH=/tmp:$PATH'    // Update PATH to include the new directory
+				}
+			}
+		}
         
         stage('SCM Checkout') {
             steps {
