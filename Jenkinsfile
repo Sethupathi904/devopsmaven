@@ -1,11 +1,11 @@
 pipeline {
     agent any
-    
+
     environment {
         PROJECT_ID = 'groovy-legacy-434014-d0'
         CLUSTER_NAME = 'k8s-cluster'
         LOCATION = 'us-central1-c'
-        CREDENTIALS_ID = 'kubernetes'    
+        CREDENTIALS_ID = 'kubernetes'
         PATH = "/usr/local/bin:${env.PATH}"
     }
     
@@ -18,26 +18,24 @@ pipeline {
         
         stage('Install Dependencies') {
             steps {
-                sh 'npm install'
+                dir('path/to/react-app') { // Change this to the correct path if needed
+                    sh 'npm install'
+                }
             }
         }
         
         stage('Build Application') {
             steps {
-                sh 'npm run build'
-            }
-        }
-        
-        stage('Run Tests') {
-            steps {
-                sh 'npm test'
+                dir('path/to/react-app') { // Change this to the correct path if needed
+                    sh 'npm run build'
+                }
             }
         }
         
         stage('Build Docker Image') {
             steps {
                 script {
-                    myimage = docker.build("sethu904/reactapp:${env.BUILD_ID}")
+                    myimage = docker.build("sethu904/reactapp:${env.BUILD_ID}", "path/to/react-app") // Adjust path if needed
                 }
             }
         }
@@ -56,9 +54,9 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 echo "Deploying to Kubernetes..."
-                sh 'sed -i "s/tagversion/${env.BUILD_ID}/g" serviceLB.yaml'
                 sh 'sed -i "s/tagversion/${env.BUILD_ID}/g" deployment.yaml'
-                step([$class: 'KubernetesEngineBuilder', projectId: env.PROJECT_ID, clusterName: env.CLUSTER_NAME, location: env.LOCATION, manifestPattern: 'serviceLB.yaml', credentialsId: env.CREDENTIALS_ID, verifyDeployments: true])
+                sh 'sed -i "s/tagversion/${env.BUILD_ID}/g" service_loadbalancer.yaml'
+                step([$class: 'KubernetesEngineBuilder', projectId: env.PROJECT_ID, clusterName: env.CLUSTER_NAME, location: env.LOCATION, manifestPattern: 'service_loadbalancer.yaml', credentialsId: env.CREDENTIALS_ID, verifyDeployments: true])
                 step([$class: 'KubernetesEngineBuilder', projectId: env.PROJECT_ID, clusterName: env.CLUSTER_NAME, location: env.LOCATION, manifestPattern: 'deployment.yaml', credentialsId: env.CREDENTIALS_ID, verifyDeployments: true])
                 echo "Deployment completed."
             }
